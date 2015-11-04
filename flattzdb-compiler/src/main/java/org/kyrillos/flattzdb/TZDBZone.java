@@ -47,14 +47,14 @@ final class TZDBZone implements Cloneable, FlatBuffersTable {
         for (int i = 0; i < zoneTimeWindowsArray.length; i++) {
             zoneTimeWindowsArray[i] = context.resolveOffset(builder, timeWindowses.get(i));
         }
-        int timeZoneOf = Zone.createTimeZonesVector(builder, zoneTimeWindowsArray);
+        int timeWindowsVector = Zone.createTimeWindowsVector(builder, zoneTimeWindowsArray);
         int zoneIdOf = context.resolveOffset(builder, name);
 
         Zone.startZone(builder);
         Zone.addName(builder, zoneIdOf);
         Zone.addVersion(builder, versionOf);
         Zone.addAlias(builder, false);
-        Zone.addTimeZones(builder, timeZoneOf);
+        Zone.addTimeWindows(builder, timeWindowsVector);
         return Zone.endZone(builder);
     }
 

@@ -56,7 +56,7 @@ public class CompilerTest {
         Zone zone = new Zone();
         for (int i = 0; i < tzdb.zonesLength(); i++) {
             tzdb.zones(zone, i);
-            System.out.println("Zone : " + zone.name() + "(timeWindows_count=" + zone.timeZonesLength() + ")");
+            System.out.println("Zone : " + zone.name() + " (time windows count=" + zone.timeWindowsLength() + ")");
         }
 
     }

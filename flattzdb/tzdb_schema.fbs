@@ -52,7 +52,7 @@ table ZoneTimeWindow {
 
 table Zone {
     name:string (required, key);
-    timeZones:[ZoneTimeWindow] (required);
+    timeWindows:[ZoneTimeWindow] (required);
 	version:string (required);
 	alias:bool;
 }

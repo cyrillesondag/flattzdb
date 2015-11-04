@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
+import java.util.TreeMap;
 import org.apache.commons.io.FileUtils;
 import org.threeten.bp.DayOfWeek;
 import org.threeten.bp.LocalDate;
@@ -224,11 +225,11 @@ public class Compiler {
 
     //-----------------------------------------------------------------------
     /** The TZDB rules. */
-    private final Map<String, List<TZDBRule>> rules = new HashMap<>();
+    private final Map<String, List<TZDBRule>> rules = new TreeMap<>();
     /** The TZDB zones. */
-    private final Map<String, TZDBZone> zones = new HashMap<>();
+    private final Map<String, TZDBZone> zones = new TreeMap<>();
     /** The TZDB links. */
-    private final Map<String, String> links = new HashMap<String, String>();
+    private final Map<String, String> links = new TreeMap<String, String>();
     /** The version to produce. */
     private final String version;
     /** The source files. */
