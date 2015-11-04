@@ -1,0 +1,65 @@
+// TZDB file schema
+namespace org.kyrillos.flattzdb;
+
+//-------------------------//
+//----------ENUMS----------//
+//-------------------------//
+
+// IMPORTANT : 'WALL' is the default
+// value so TimeDef properties must
+// be equals to 0 if not set.
+enum TimeDef : ubyte {WALL = 0, UTC, STANDARD}
+
+//-------------------------//
+//----------STRUCTS--------//
+//-------------------------//
+struct Time {
+    hours:ubyte;
+    minutes:ubyte;
+    seconds:ubyte;
+}
+
+struct DateTime {
+    year:int;
+    month:byte;
+    dayOfMonth:ubyte;
+    hours:ubyte;
+    minutes:ubyte;
+    seconds:ubyte;
+}
+
+//-------------------------//
+//----------TABLES---------//
+//-------------------------//
+table ZoneRule {
+    name:string (required);
+    from:DateTime (required);
+    timeDef:TimeDef;
+    toYear:int;
+    type:string;
+    save:Time (required);
+    text:string;
+}
+
+table ZoneTimeWindow {
+	gmtOffset:int;
+	rules:[ZoneRule];
+	fixed:Time;
+	format:string (required);
+	until:DateTime;
+	timeDef:TimeDef;
+}
+
+table Zone {
+    name:string (required, key);
+    timeZones:[ZoneTimeWindow] (required);
+	version:string (required);
+	alias:bool;
+}
+
+table Tzdb {
+	zones:[Zone] (required);
+}
+
+root_type Tzdb;
+file_identifier "TZDB";
