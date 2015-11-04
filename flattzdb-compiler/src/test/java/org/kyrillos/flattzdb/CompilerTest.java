@@ -18,6 +18,8 @@ package org.kyrillos.flattzdb;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -37,12 +39,26 @@ public class CompilerTest {
         String samples = CompilerTest.class.getResource("/integration/").getPath();
         File destFolder = folder.newFolder();
         String[] args = {"-srcdir", samples, "-dstdir", destFolder.getPath()};
+        long start = System.currentTimeMillis();
         Compiler.main(args);
+        System.out.println("Compile take " + (System.currentTimeMillis() - start) + " ms");
 
         File[] files = destFolder.listFiles();
         Assert.assertNotNull(files);
         Assert.assertTrue(files.length == 1);
-        System.out.println("size = " + files[0].length() / 1024 + " kb");
+        System.out.println("Result file size = " + files[0].length() / 1024 + " kb");
+
+
+        byte[] bytes = Files.readAllBytes(files[0].toPath());
+        Tzdb tzdb = Tzdb.getRootAsTzdb(ByteBuffer.wrap(bytes));
+        Assert.assertTrue(tzdb.zonesLength() > 0);
+        System.out.println(tzdb.zonesLength() + " zones in DB");
+        Zone zone = new Zone();
+        for (int i = 0; i < tzdb.zonesLength(); i++) {
+            tzdb.zones(zone, i);
+            System.out.println("Zone : " + zone.name() + "(timeWindows_count=" + zone.timeZonesLength() + ")");
+        }
+
     }
 
 }
