@@ -19,41 +19,44 @@ package org.kyrillos.flattzdb;
 import com.google.flatbuffers.FlatBufferBuilder;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nonnull;
 
 /**
  * Project : flattzdb-parent. Created by Cyrille Sondag on 04/11/2015.
  */
-final class TZDBZone implements Cloneable, FlatBuffersTable {
+final class TZDBZone implements FlatBuffersTable {
 
-    String name;
-    String version;
-    boolean alias;
+    @Nonnull
+    static Builder builder(){
+        return new Builder();
+    }
 
-    List<TZDBZoneTimeWindows> timeWindowses = new ArrayList<>();
+    final String name;
+    final List<TZDBTimeWindows> timeWindows;
 
-    @Override
-    protected TZDBZone clone() throws CloneNotSupportedException {
-        final TZDBZone clone = (TZDBZone) super.clone();
-        clone.name = name;
-        clone.version = version;
-        clone.alias = alias;
-        clone.timeWindowses = new ArrayList<>(timeWindowses);
-        return clone;
+    private TZDBZone(@Nonnull String name, @Nonnull List<TZDBTimeWindows> timeWindows) {
+        this.name = name;
+        this.timeWindows = timeWindows;
+    }
+
+    public TZDBZone createAlias(@Nonnull String alias) {
+        return new TZDBZone(alias, timeWindows);
     }
 
     public int writeToFlatBuffer(FlatBufferBuilder builder, SerializationContext context) {
-        int versionOf = context.resolveOffset(builder, version);
-        int[] zoneTimeWindowsArray = new int[timeWindowses.size()];
+        int[] zoneTimeWindowsArray = new int[timeWindows.size()];
         for (int i = 0; i < zoneTimeWindowsArray.length; i++) {
-            zoneTimeWindowsArray[i] = context.resolveOffset(builder, timeWindowses.get(i));
+            zoneTimeWindowsArray[i] = context.resolveOffset(builder, timeWindows.get(i));
         }
-        int timeWindowsVector = Zone.createTimeWindowsVector(builder, zoneTimeWindowsArray);
+        Integer timeWindowsVector = context.resolveVectorOffset(TZDBTimeWindows.class, zoneTimeWindowsArray);
+        if (timeWindowsVector == null){
+            timeWindowsVector = Zone.createTimeWindowsVector(builder, zoneTimeWindowsArray);
+            context.storeVectorOffset(TZDBTimeWindows.class, zoneTimeWindowsArray, timeWindowsVector);
+        }
         int zoneIdOf = context.resolveOffset(builder, name);
 
         Zone.startZone(builder);
         Zone.addName(builder, zoneIdOf);
-        Zone.addVersion(builder, versionOf);
-        Zone.addAlias(builder, false);
         Zone.addTimeWindows(builder, timeWindowsVector);
         return Zone.endZone(builder);
     }
@@ -63,24 +66,36 @@ final class TZDBZone implements Cloneable, FlatBuffersTable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        TZDBZone tzdbZone = (TZDBZone) o;
+        TZDBZone zone = (TZDBZone) o;
 
-        if (alias != tzdbZone.alias) return false;
-        if (name != null ? !name.equals(tzdbZone.name) : tzdbZone.name != null) return false;
-        if (version != null ? !version.equals(tzdbZone.version) : tzdbZone.version != null)
-            return false;
-        if (timeWindowses != null ? !timeWindowses.equals(tzdbZone.timeWindowses) : tzdbZone.timeWindowses != null)
-            return false;
+        return name.equals(zone.name);
 
-        return true;
     }
 
     @Override
     public int hashCode() {
-        int result = name != null ? name.hashCode() : 0;
-        result = 31 * result + (version != null ? version.hashCode() : 0);
-        result = 31 * result + (alias ? 1 : 0);
-        result = 31 * result + (timeWindowses != null ? timeWindowses.hashCode() : 0);
-        return result;
+        return name.hashCode();
+    }
+
+    public static class Builder {
+        private String name;
+        private List<TZDBTimeWindows> timeWindowses = new ArrayList<>();
+
+        private Builder() {
+        }
+
+        public Builder setName(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public Builder addTimeWindows(TZDBTimeWindows timeWindows){
+            this.timeWindowses.add(timeWindows);
+            return this;
+        }
+
+        public TZDBZone build() {
+            return new TZDBZone(name, timeWindowses);
+        }
     }
 }

@@ -19,11 +19,18 @@ package org.kyrillos.flattzdb;
 import org.threeten.bp.LocalDateTime;
 
 /**
- * Project : flattzdb-parent. Created by Cyrille Sondag on 04/11/2015.
- */ //-----------------------------------------------------------------------
+ * Project : flattzdb-parent.
+ * Created by Cyrille Sondag on 04/11/2015.
+ */
 abstract class DateTimed {
-    protected LocalDateTime date;
-    protected int timeDefinition;
+
+    protected final LocalDateTime date;
+    protected final int timeDefinition;
+
+    DateTimed(LocalDateTime date, int timeDefinition) {
+        this.date = date;
+        this.timeDefinition = timeDefinition;
+    }
 
     @Override
     public boolean equals(Object o) {

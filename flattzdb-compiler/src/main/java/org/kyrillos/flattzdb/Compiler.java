@@ -23,7 +23,6 @@ import java.io.FileReader;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
@@ -207,8 +206,11 @@ public class Compiler {
                     builtZones[i] = zones.get(i).writeToFlatBuffer(builder, context);
                 }
                 int zonesVector = Tzdb.createZonesVector(builder, builtZones);
+                int versionOf = builder.createString(loopVersion);
+
                 Tzdb.startTzdb(builder);
                 Tzdb.addZones(builder, zonesVector);
+                Tzdb.addVersion(builder, versionOf);
                 int offset = Tzdb.endTzdb(builder);
                 Tzdb.finishTzdbBuffer(builder, offset);
 
@@ -297,7 +299,7 @@ public class Compiler {
         BufferedReader in = null;
         try {
             in = new BufferedReader(new FileReader(file));
-            TZDBZone openZone = null;
+            TZDBZone.Builder openZoneBuilder = null;
             for (; (line = in.readLine()) != null; lineNumber++) {
                 int index = line.indexOf('#');  // remove comments (doesn't handle # in quotes)
                 if (index >= 0) {
@@ -307,9 +309,11 @@ public class Compiler {
                     continue;
                 }
                 StringTokenizer st = new StringTokenizer(line, " \t");
-                if (openZone != null && Character.isWhitespace(line.charAt(0)) && st.hasMoreTokens()) {
-                    if (parseZoneLine(st, openZone)) {
-                        openZone = null;
+                if (openZoneBuilder != null && Character.isWhitespace(line.charAt(0)) && st.hasMoreTokens()) {
+                    if (parseZoneLine(st, openZoneBuilder)) {
+                        TZDBZone zone = openZoneBuilder.build();
+                        zones.put(zone.name, zone);
+                        openZoneBuilder = null;
                     }
                 } else {
                     if (st.hasMoreTokens()) {
@@ -319,15 +323,19 @@ public class Compiler {
                                 printVerbose("Invalid Zone line in file: " + file + ", line: " + line);
                                 throw new IllegalArgumentException("Invalid Zone line");
                             }
-                            openZone = new TZDBZone();
-                            openZone.name = st.nextToken();
-                            openZone.version = version;
-                            zones.put(openZone.name, openZone);
-                            if (parseZoneLine(st, openZone)) {
-                                openZone = null;
+
+                            openZoneBuilder = TZDBZone.builder().setName(st.nextToken());
+                            if (parseZoneLine(st, openZoneBuilder)) {
+                                TZDBZone zone = openZoneBuilder.build();
+                                zones.put(zone.name, zone);
+                                openZoneBuilder = null;
                             }
                         } else {
-                            openZone = null;
+                            if (openZoneBuilder != null) {
+                                TZDBZone zone = openZoneBuilder.build();
+                                zones.put(zone.name, zone);
+                                openZoneBuilder = null;
+                            }
                             if (first.equals("Rule")) {
                                 if (st.countTokens() < 9) {
                                     printVerbose("Invalid Rule line in file: " + file + ", line: " + line);
@@ -366,22 +374,20 @@ public class Compiler {
      * @param st the tokenizer, not null
      */
     private void parseRuleLine(StringTokenizer st) {
-        final TZDBRule rule = new TZDBRule();
-        rule.name = st.nextToken();
-        if (!rules.containsKey(rule.name)) {
-            rules.put(rule.name, new ArrayList<TZDBRule>());
+        final String name = st.nextToken();
+        if (!rules.containsKey(name)) {
+            rules.put(name, new ArrayList<TZDBRule>());
         }
-        rules.get(rule.name).add(rule);
 
+        final TZDBRule.Builder builder = TZDBRule.builder();
+        builder.setName(name);
         final int startYear = parseInt(st.nextToken());
-        rule.endYear = parseYear(st.nextToken(), startYear);
-        if (startYear > rule.endYear) {
-            throw new IllegalArgumentException("Year order invalid: " + startYear + " > " + rule.endYear);
-        }
-        rule.type = parseOptional(st.nextToken());
-        parseMonthDayTime(st, rule, startYear);
-        rule.save = parseLocalTime(st.nextToken());
-        rule.text = parseOptional(st.nextToken());
+        builder.setEndYear(parseYear(st.nextToken(), startYear));
+        parseOptional(st.nextToken()); //ignore type.
+        parseMonthDayTime(st, builder, startYear);
+        builder.setSave(parseLocalTime(st.nextToken()));
+        builder.setText(parseOptional(st.nextToken()));
+        rules.get(name).add(builder.build());
     }
 
     /**
@@ -390,31 +396,27 @@ public class Compiler {
      * @param st the tokenizer, not null
      * @return true if the zone is complete
      */
-    private boolean parseZoneLine(StringTokenizer st, TZDBZone zoneList) {
-        final TZDBZoneTimeWindows zone = new TZDBZoneTimeWindows();
-        zoneList.timeWindowses.add(zone);
-
-        zone.gmtOffset = parseOffsetTime(st.nextToken());
+    private boolean parseZoneLine(StringTokenizer st, TZDBZone.Builder zoneBuilder) {
+        final TZDBTimeWindows.Builder builder = TZDBTimeWindows.builder();
+        builder.setGmtOffset(parseOffsetTime(st.nextToken()));
         final String savingsRule = parseOptional(st.nextToken());
         if (savingsRule != null) {
             if (savingsRule.matches("[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?")) {
-                zone.fixedTime = parseLocalTime(savingsRule);
+                builder.setFixedTime(parseLocalTime(savingsRule));
             } else {
-                zone.rules = this.rules.get(savingsRule);
+                builder.setRules(this.rules.get(savingsRule));
             }
         }
-        zone.format = st.nextToken();
-        if (st.hasMoreTokens()) {
+        builder.setFormat(st.nextToken());
+        boolean isLast = !st.hasMoreTokens();
+        if (!isLast) {
             int year = parseInt(st.nextToken());
             if(st.hasMoreTokens()) {
-                parseMonthDayTime(st, zone, year);
-            } else {
-                zone.date = LocalDateTime.of(year, Month.JANUARY, 1, 0, 0);
-                zone.timeDefinition = TimeDef.WALL;
+                parseMonthDayTime(st, builder, year);
             }
-            return false;
         }
-        return true;
+        zoneBuilder.addTimeWindows(builder.build());
+        return isLast;
     }
 
     /**
@@ -424,7 +426,7 @@ public class Compiler {
      * @param object the date timed object to feed.
      * @param year the date year.
      */
-    private void parseMonthDayTime(StringTokenizer st, DateTimed object, int year) {
+    private void parseMonthDayTime(StringTokenizer st, MonthDayTimeBuilder object, int year) {
         int month = parseMonth(st.nextToken());
         int dayOfMonth = -1;
         int dayOfWeek = -1;
@@ -453,12 +455,13 @@ public class Compiler {
             if (st.hasMoreTokens()) {
                 String timeString = st.nextToken();
                 time = parseLocalTime(timeString);
-                object.timeDefinition = parseTimeDefinition(timeString);
+                object.setTimeDefinition(parseTimeDefinition(timeString));
             }
-            object.date = createLocalDateTime(year, month, dayOfMonth, dayOfWeek, time);
+            LocalDateTime date = createLocalDateTime(year, month, dayOfMonth, dayOfWeek, time);
             if (!adjustForwards) {
-                object.date = object.date.minusDays(6);
+                date = date.minusDays(6);
             }
+            object.setDate(date);
         }
     }
 
@@ -477,10 +480,7 @@ public class Compiler {
             if (origin == null) {
                 throw new IllegalStateException("Cound't find link " + realId + " for alias " + aliasId);
             }
-            TZDBZone clone = origin.clone();
-            clone.name = aliasId;
-            clone.alias = true;
-            zones.put(aliasId, clone);
+            zones.put(aliasId, origin.createAlias(aliasId));
         }
     }
 

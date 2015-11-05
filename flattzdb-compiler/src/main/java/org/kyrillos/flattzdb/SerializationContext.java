@@ -17,12 +17,13 @@
 package org.kyrillos.flattzdb;
 
 import com.google.flatbuffers.FlatBufferBuilder;
+import java.util.Arrays;
 import java.util.HashMap;
 
 /**
  * Project : flattzdb-parent. Created by Cyrille Sondag on 04/11/2015.
  */
-public class SerializationContext {
+final class SerializationContext {
 
     private final HashMap<Object, Integer> context = new HashMap<>();
 
@@ -48,5 +49,43 @@ public class SerializationContext {
             context.put(o, ((FlatBuffersTable) o).writeToFlatBuffer(builder, this));
         }
         return context.get(o);
+    }
+
+    public Integer resolveVectorOffset(Class clazz, int[] vectorOffsets){
+        return context.get(new VectorKey(clazz, vectorOffsets));
+    }
+
+    public void storeVectorOffset(Class clazz, int[] vectorOffsets, int offset){
+        context.put(new VectorKey(clazz, vectorOffsets), offset);
+    }
+
+    private final class VectorKey {
+
+        private final Class vectorClass;
+        private final int[] vectorOffsets;
+
+        private VectorKey(Class vectorClass, int[] vectorOffsets) {
+            this.vectorClass = vectorClass;
+            this.vectorOffsets = vectorOffsets;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            VectorKey vectorKey = (VectorKey) o;
+
+            if (!vectorClass.equals(vectorKey.vectorClass)) return false;
+            return Arrays.equals(vectorOffsets, vectorKey.vectorOffsets);
+
+        }
+
+        @Override
+        public int hashCode() {
+            int result = vectorClass.hashCode();
+            result = 31 * result + Arrays.hashCode(vectorOffsets);
+            return result;
+        }
     }
 }

@@ -17,71 +17,110 @@
 package org.kyrillos.flattzdb;
 
 import com.google.flatbuffers.FlatBufferBuilder;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.threeten.bp.LocalDateTime;
 import org.threeten.bp.LocalTime;
+import org.threeten.bp.jdk8.Jdk8Methods;
 
 /**
  * Class representing a rule line in the TZDB file.
  */
-final class TZDBRule extends DateTimed implements FlatBuffersTable {
+final class TZDBRule implements FlatBuffersTable {
 
-    String name;
-    int endYear;
-    @Nullable
-    String type;
-    LocalTime save;
-    @Nullable
-    String text;
+    @Nonnull
+    static Builder builder() {
+        return new Builder();
+    }
+
+    final String name;
+    final int endYear;
+    final LocalTime save;
+    final String text;
+    final LocalDateTime until;
+    final int timeDefinition;
+    //final boolean adjustForward;
+
+    private TZDBRule(@Nonnull LocalDateTime date, int timeDefinition, @Nonnull String name, int endYear, @Nonnull LocalTime save, @Nullable String text) {
+        this.until = date;
+        this.timeDefinition = timeDefinition;
+        this.name = name;
+        this.endYear = endYear;
+        this.save = save;
+        this.text = text;
+    }
 
     public int writeToFlatBuffer(FlatBufferBuilder builder, SerializationContext context) {
         int nameOff = context.resolveOffset(builder, name);
-        Integer typeOff = context.resolveOptionalOffset(builder, type);
         Integer textOff = context.resolveOptionalOffset(builder, text);
 
         ZoneRule.startZoneRule(builder);
         ZoneRule.addName(builder, nameOff);
-        int dateTimeOff = DateTime.createDateTime(builder, date.getYear(), (byte) date.getMonthValue(), date.getDayOfMonth(), date.getHour(), date.getMinute(), date.getSecond());
+
+        int dateTimeOff = DateTime.createDateTime(builder, until.getYear(), until.getMonthValue(), until.getDayOfMonth(), until.getHour() * 60 * 60 + until.getMinute() * 60 + until.getSecond());
         ZoneRule.addFrom(builder, dateTimeOff);
         ZoneRule.addTimeDef(builder, timeDefinition);
 
         ZoneRule.addToYear(builder, endYear);
-        if (typeOff != null) {
-            ZoneRule.addType(builder, typeOff);
-        }
-
-        int saveOff = Time.createTime(builder, (byte) save.getHour(), save.getMinute(), save.getSecond());
-        ZoneRule.addSave(builder, saveOff);
+        ZoneRule.addSave(builder, save.getHour() * 60 * 60 + save.getMinute() * 60 + save.getSecond());
         if (textOff != null) {
             ZoneRule.addText(builder, textOff);
         }
-
         return ZoneRule.endZoneRule(builder);
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        if (!super.equals(o)) return false;
+    public static class Builder implements MonthDayTimeBuilder {
+        private LocalDateTime date;
+        private int timeDefinition;
+        private String name;
+        private int endYear;
+        private LocalTime save;
+        private String text;
 
-        TZDBRule rule = (TZDBRule) o;
+        private Builder() {
+        }
 
-        if (endYear != rule.endYear) return false;
-        if (name != null ? !name.equals(rule.name) : rule.name != null) return false;
-        if (type != null ? !type.equals(rule.type) : rule.type != null) return false;
-        if (save != null ? !save.equals(rule.save) : rule.save != null) return false;
-        return !(text != null ? !text.equals(rule.text) : rule.text != null);
+        @Override
+        public Builder setDate(LocalDateTime date) {
+            this.date = date;
+            return this;
+        }
 
-    }
+        @Override
+        public Builder setTimeDefinition(int timeDefinition) {
+            this.timeDefinition = timeDefinition;
+            return this;
+        }
 
-    @Override
-    public int hashCode() {
-        int result = super.hashCode();
-        result = 31 * result + (name != null ? name.hashCode() : 0);
-        result = 31 * result + endYear;
-        result = 31 * result + (type != null ? type.hashCode() : 0);
-        result = 31 * result + (save != null ? save.hashCode() : 0);
-        result = 31 * result + (text != null ? text.hashCode() : 0);
-        return result;
+        public Builder setName(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public Builder setEndYear(int endYear) {
+            this.endYear = endYear;
+            return this;
+        }
+
+        public Builder setSave(LocalTime save) {
+            this.save = save;
+            return this;
+        }
+
+        public Builder setText(String text) {
+            this.text = text;
+            return this;
+        }
+
+        public TZDBRule build() {
+            Jdk8Methods.requireNonNull(date, "date");
+            Jdk8Methods.requireNonNull(name, "name");
+            Jdk8Methods.requireNonNull(save, "save");
+            if (date.getYear() > endYear) {
+                throw new IllegalArgumentException("Year order invalid: " + date.getYear() + " > " + endYear);
+            }
+
+            return new TZDBRule(date, timeDefinition, name, endYear, save, text);
+        }
     }
 }

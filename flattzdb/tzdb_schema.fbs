@@ -13,19 +13,11 @@ enum TimeDef : ubyte {WALL = 0, UTC, STANDARD}
 //-------------------------//
 //----------STRUCTS--------//
 //-------------------------//
-struct Time {
-    hours:ubyte;
-    minutes:ubyte;
-    seconds:ubyte;
-}
-
 struct DateTime {
     year:int;
-    month:byte;
+    month:ubyte;
     dayOfMonth:ubyte;
-    hours:ubyte;
-    minutes:ubyte;
-    seconds:ubyte;
+    at:uint;
 }
 
 //-------------------------//
@@ -34,31 +26,31 @@ struct DateTime {
 table ZoneRule {
     name:string (required);
     from:DateTime (required);
+    adjustForward:bool = true;
     timeDef:TimeDef;
     toYear:int;
-    type:string;
-    save:Time (required);
+    save:uint;
     text:string;
 }
 
 table ZoneTimeWindow {
 	gmtOffset:int;
 	rules:[ZoneRule];
-	fixed:Time;
+	fixed:int;
 	format:string (required);
 	until:DateTime;
 	timeDef:TimeDef;
+	adjustForward:bool = true;
 }
 
 table Zone {
     name:string (required, key);
     timeWindows:[ZoneTimeWindow] (required);
-	version:string (required);
-	alias:bool;
 }
 
 table Tzdb {
 	zones:[Zone] (required);
+	version:string (required);
 }
 
 root_type Tzdb;

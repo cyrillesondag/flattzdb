@@ -36,9 +36,9 @@ public class CompilerTest {
 
     @Test
     public void compileTest() throws IOException {
-        String samples = CompilerTest.class.getResource("/integration/").getPath();
+        String samples = CompilerTest.class.getResource("/samples/").getPath();
         File destFolder = folder.newFolder();
-        String[] args = {"-srcdir", samples, "-dstdir", destFolder.getPath()};
+        String[] args = {"-srcdir", samples, "-dstdir", destFolder.getPath(), "-verbose"};
         long start = System.currentTimeMillis();
         Compiler.main(args);
         System.out.println("Compile take " + (System.currentTimeMillis() - start) + " ms");
