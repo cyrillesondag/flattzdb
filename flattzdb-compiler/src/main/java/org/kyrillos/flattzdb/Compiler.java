@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.TreeMap;
+import javax.annotation.Nonnull;
 import org.apache.commons.io.FileUtils;
 import org.threeten.bp.DayOfWeek;
 import org.threeten.bp.LocalDate;
@@ -373,7 +374,7 @@ public class Compiler {
      *
      * @param st the tokenizer, not null
      */
-    private void parseRuleLine(StringTokenizer st) {
+    void parseRuleLine(StringTokenizer st) {
         final String name = st.nextToken();
         if (!rules.containsKey(name)) {
             rules.put(name, new ArrayList<TZDBRule>());
@@ -396,7 +397,7 @@ public class Compiler {
      * @param st the tokenizer, not null
      * @return true if the zone is complete
      */
-    private boolean parseZoneLine(StringTokenizer st, TZDBZone.Builder zoneBuilder) {
+    boolean parseZoneLine(StringTokenizer st, TZDBZone.Builder zoneBuilder) {
         final TZDBTimeWindows.Builder builder = TZDBTimeWindows.builder();
         builder.setGmtOffset(parseOffsetTime(st.nextToken()));
         final String savingsRule = parseOptional(st.nextToken());
@@ -426,7 +427,7 @@ public class Compiler {
      * @param object the date timed object to feed.
      * @param year the date year.
      */
-    private void parseMonthDayTime(StringTokenizer st, MonthDayTimeBuilder object, int year) {
+    void parseMonthDayTime(StringTokenizer st, MonthDayTimeBuilder object, int year) {
         int month = parseMonth(st.nextToken());
         int dayOfMonth = -1;
         int dayOfWeek = -1;
@@ -506,7 +507,7 @@ public class Compiler {
      * @param s input string (can be null).
      * @return the day of week index  or -1 if null of not found.
      */
-    private static int parseDayOfWeek(String s) {
+    static int parseDayOfWeek(String s) {
         if (s != null) {
             String dow = s.toLowerCase();
             if (dow.length() > 3) {
@@ -543,7 +544,7 @@ public class Compiler {
      * @param s the input string (can be null).
      * @return the month index or -1 if null of not found.
      */
-    private static int parseMonth(String s) {
+    static int parseMonth(String s) {
         if (s != null) {
             String dow = s.toLowerCase();
             if (matches(dow, "january")) {
@@ -592,7 +593,7 @@ public class Compiler {
      * @param s the input string (can be null)
      * @return time definition (or default WALL time definition if missing)
      */
-    private int parseTimeDefinition(String s) {
+    int parseTimeDefinition(String s) {
         char c;
         if (s != null && Character.isAlphabetic(c = s.charAt(s.length() - 1))) {
             switch (Character.toLowerCase(c)) {
@@ -615,7 +616,7 @@ public class Compiler {
      * @param s the input string (can be null).
      * @return Local date time or LocalTime.MIDNIGHT is missing.
      */
-    private static LocalTime parseLocalTime(String s) {
+    static LocalTime parseLocalTime(String s) {
         if (s != null) {
             String[] parts = s.split(":");
             int hours = parseInt(parts[0]);
@@ -642,8 +643,8 @@ public class Compiler {
      * @param s the input string (can be null).
      * @return Local date time or LocalTime.MIDNIGHT is missing.
      */
-    private static ZoneOffset parseOffsetTime(String s) {
-        if (s != null) {
+    static ZoneOffset parseOffsetTime(String s) {
+        if (s == null) {
             return ZoneOffset.ofHours(0);
         }
         String[] parts = s.split(":");
@@ -673,7 +674,7 @@ public class Compiler {
      * @param localTime local time.
      * @return LocalDateTime
      */
-    private static LocalDateTime createLocalDateTime(int year, int month, int dayOfMonth, int dayOfWeek, LocalTime localTime) {
+    static LocalDateTime createLocalDateTime(int year, int month, int dayOfMonth, int dayOfWeek, LocalTime localTime) {
         LocalDate date;
         if (dayOfMonth == -1) {
             int dom = Month.of(month).length(Year.isLeap(year));
@@ -704,8 +705,8 @@ public class Compiler {
      * @param search searched string.
      * @return true if match
      */
-    private static boolean matches(String s, String search) {
-        return s != null & s.startsWith(search.substring(0, 3)) && search.startsWith(s) && s.length() <= search.length();
+    private static boolean matches(String s, @Nonnull String search) {
+        return s != null && s.startsWith(search.substring(0, 3)) && search.startsWith(s) && s.length() <= search.length();
     }
 
     /**
