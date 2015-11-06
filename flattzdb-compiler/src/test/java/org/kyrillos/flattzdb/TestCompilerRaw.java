@@ -29,14 +29,14 @@ import org.junit.rules.TemporaryFolder;
  * Project : flattzdb-parent.
  * Created by Cyrille Sondag on 04/11/2015.
  */
-public class CompilerTest {
+public class TestCompilerRaw {
 
     @Rule
     public TemporaryFolder folder= new TemporaryFolder();
 
     @Test
     public void compileTest() throws IOException {
-        String samples = CompilerTest.class.getResource("/samples/").getPath();
+        String samples = TestCompilerRaw.class.getResource("/samples/").getPath();
         File destFolder = folder.newFolder();
         String[] args = {"-srcdir", samples, "-dstdir", destFolder.getPath(), "-verbose"};
         long start = System.currentTimeMillis();

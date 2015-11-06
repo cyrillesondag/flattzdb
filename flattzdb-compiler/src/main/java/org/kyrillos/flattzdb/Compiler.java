@@ -385,7 +385,7 @@ public class Compiler {
         final int startYear = parseInt(st.nextToken());
         builder.setEndYear(parseYear(st.nextToken(), startYear));
         parseOptional(st.nextToken()); //ignore type.
-        parseMonthDayTime(st, builder, startYear);
+        parseMonthDayTime(builder, startYear, st);
         builder.setSave(parseLocalTime(st.nextToken()));
         builder.setText(parseOptional(st.nextToken()));
         rules.get(name).add(builder.build());
@@ -413,7 +413,7 @@ public class Compiler {
         if (!isLast) {
             int year = parseInt(st.nextToken());
             if(st.hasMoreTokens()) {
-                parseMonthDayTime(st, builder, year);
+                parseMonthDayTime(builder, year, st);
             }
         }
         zoneBuilder.addTimeWindows(builder.build());
@@ -422,12 +422,11 @@ public class Compiler {
 
     /**
      * Parse month and time constraints.
-     *
-     * @param st the tokenizer, not null
-     * @param object the date timed object to feed.
+     *  @param object the date timed object to feed.
      * @param year the date year.
+     * @param st the tokenizer, not null
      */
-    void parseMonthDayTime(StringTokenizer st, MonthDayTimeBuilder object, int year) {
+    void parseMonthDayTime(MonthDayTimeBuilder object, int year, StringTokenizer st) {
         int month = parseMonth(st.nextToken());
         int dayOfMonth = -1;
         int dayOfWeek = -1;
@@ -436,7 +435,7 @@ public class Compiler {
             String dayRule = st.nextToken();
             if (dayRule.startsWith("last")) {
                 dayOfWeek = parseDayOfWeek(dayRule.substring(4));
-                //FIXME adjustForwards = false (not useful ???)
+                adjustForwards = false;
             } else {
                 int index = dayRule.indexOf(">=");
                 if (index > 0) {
@@ -458,10 +457,7 @@ public class Compiler {
                 time = parseLocalTime(timeString);
                 object.setTimeDefinition(parseTimeDefinition(timeString));
             }
-            LocalDateTime date = createLocalDateTime(year, month, dayOfMonth, dayOfWeek, time);
-            if (!adjustForwards) {
-                date = date.minusDays(6);
-            }
+            LocalDateTime date = createLocalDateTime(year, month, dayOfMonth, dayOfWeek, adjustForwards, time);
             object.setDate(date);
         }
     }
@@ -535,7 +531,7 @@ public class Compiler {
                 return DayOfWeek.SUNDAY.getValue();
             }
         }
-        return -1;
+        throw new IllegalArgumentException("Invalid month " + s);
     }
 
     /**
@@ -584,7 +580,7 @@ public class Compiler {
                 return Month.DECEMBER.getValue();
             }
         }
-        return -1;
+        throw new IllegalArgumentException("Invalid month " + s);
     }
 
     /**
@@ -671,26 +667,23 @@ public class Compiler {
      * @param month the month index.
      * @param dayOfMonth the day of month index.
      * @param dayOfWeek the day of week index
-     * @param localTime local time.
-     * @return LocalDateTime
+     * @param adjustForwards
+     *@param localTime local time.  @return LocalDateTime
      */
-    static LocalDateTime createLocalDateTime(int year, int month, int dayOfMonth, int dayOfWeek, LocalTime localTime) {
+    static LocalDateTime createLocalDateTime(int year, int month, int dayOfMonth, int dayOfWeek, boolean adjustForwards, LocalTime localTime) {
         LocalDate date;
-        if (dayOfMonth == -1) {
-            int dom = Month.of(month).length(Year.isLeap(year));
-            date = LocalDate.of(year, month, dom);
-            if (dayOfWeek != -1) {
-                date = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.of(dayOfWeek)));
-            }
-        } else {
-            date = LocalDate.of(year, month, dayOfMonth);
-            if (dayOfWeek != -1) {
-                date = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.of(dayOfWeek)));
-            }
+        int dom = dayOfMonth;
+        if (dom == -1) {
+            dom = Month.of(month).length(Year.isLeap(year));
+        }
+        date = LocalDate.of(year, month, dom);
+        if (dayOfWeek != -1) {
+            DayOfWeek dow = DayOfWeek.of(dayOfWeek);
+            date = date.with(adjustForwards ? TemporalAdjusters.nextOrSame(dow) : TemporalAdjusters.previousOrSame(dow));
         }
         LocalDateTime ldt = LocalDateTime.of(date, localTime != null ? localTime : LocalTime.MIDNIGHT);
         if (ldt.getHour() == 23 && ldt.getSecond() == 59 && ldt.getMinute() == 59) {
-            ldt.plusDays(1)
+            ldt = ldt.plusDays(1)
                     .withHour(0)
                     .withMinute(0)
                     .withSecond(0);
@@ -716,7 +709,7 @@ public class Compiler {
      * @param defaultYear the only value.
      * @return year.
      */
-    private static int parseYear(String s, int defaultYear) {
+    static int parseYear(String s, int defaultYear) {
         s = s.toLowerCase();
         if (matches(s, "minimum")) {
             return Year.MIN_VALUE;
